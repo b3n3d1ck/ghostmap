@@ -84,6 +84,26 @@ func main() {
 	printReport(rep, color)
 }
 
+func sevTag(sev string, color bool) string {
+	switch sev {
+	case "TINGGI":
+		return red("[TINGGI]", color)
+	case "SEDANG":
+		return yellow("[SEDANG]", color)
+	default:
+		return cyan("[RENDAH]", color)
+	}
+}
+
+func sortedWeaknesses(ws []Weakness) []Weakness {
+	rank := map[string]int{"TINGGI": 0, "SEDANG": 1, "RENDAH": 2}
+	out := append([]Weakness(nil), ws...)
+	sort.SliceStable(out, func(i, j int) bool {
+		return rank[out[i].Severity] < rank[out[j].Severity]
+	})
+	return out
+}
+
 func usage() {
 	fmt.Fprintf(os.Stderr, `ghostmap %s — wordless web attack-surface recon
 
@@ -164,9 +184,28 @@ func printReport(r Report, color bool) {
 		}
 	}
 
-	if len(r.MissingHeaders) > 0 {
-		fmt.Printf("\n%s\n", bold("HEADER KEAMANAN HILANG", color))
-		fmt.Printf("  %s\n", yellow(strings.Join(r.MissingHeaders, ", "), color))
+	if len(r.Weaknesses) > 0 {
+		fmt.Printf("\n%s\n", bold("KELEMAHAN KEAMANAN", color))
+		for _, w := range sortedWeaknesses(r.Weaknesses) {
+			fmt.Printf("  %s %s\n", sevTag(w.Severity, color), w.Title)
+			if w.Detail != "" {
+				fmt.Printf("      %s\n", dim(w.Detail, color))
+			}
+			if w.Fix != "" {
+				fmt.Printf("      %s %s\n", cyan("fix:", color), w.Fix)
+			}
+		}
+	}
+
+	if len(r.PageFlags) > 0 {
+		fmt.Printf("\n%s\n", bold("CATATAN HALAMAN", color))
+		for _, p := range r.PageFlags {
+			tag := cyan("["+p.Kind+"]", color)
+			if p.Kind == "webshell" {
+				tag = red("[webshell?]", color)
+			}
+			fmt.Printf("  %s %-34s %s\n", tag, p.Path, dim(p.Note, color))
+		}
 	}
 
 	if len(r.Exposures) > 0 {

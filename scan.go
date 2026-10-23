@@ -32,6 +32,8 @@ type Report struct {
 	MissingHeaders []string   `json:"missing_security_headers"`
 	Paths          []Finding  `json:"paths"`
 	Exposures      []Exposure `json:"exposures"`
+	Weaknesses     []Weakness `json:"weaknesses"`
+	PageFlags      []PageFlag `json:"page_flags"`
 	Requests       int        `json:"requests"`
 	DurationMS     int64      `json:"duration_ms"`
 }
@@ -48,10 +50,12 @@ type scanner struct {
 	base *url.URL
 	cfg  config
 
-	mu       sync.Mutex
-	seen     map[string]bool
-	findings []Finding
-	reqCount int
+	mu         sync.Mutex
+	seen       map[string]bool
+	findings   []Finding
+	weaknesses []Weakness
+	pageFlags  []PageFlag
+	reqCount   int
 
 	sem     chan struct{}
 	limiter <-chan time.Time
@@ -112,6 +116,10 @@ func (s *scanner) Run() Report {
 		rep.FinalURL = s.url("/")
 		rep.Tech = fingerprint(root)
 		rep.MissingHeaders = missingSecurityHeaders(root)
+		s.weaknesses = append(s.weaknesses, auditHeaders(root)...)
+		s.weaknesses = append(s.weaknesses, auditCookies(root)...)
+		s.weaknesses = append(s.weaknesses, auditVersion(root)...)
+		s.checkContent("/", root.body)
 	}
 
 	// --- seed discovery (no wordlist) ---
@@ -170,6 +178,7 @@ func (s *scanner) Run() Report {
 		for _, f := range found {
 			if f.Status == 200 && strings.Contains(strings.ToLower(f.ContentType), "html") {
 				if r, ok := s.fetch(f.Path); ok {
+					s.checkContent(f.Path, r.body)
 					for _, np := range extractFromHTML(s.base, r.body) {
 						if !s.isSeen(np) {
 							next[np] = true
@@ -188,7 +197,12 @@ func (s *scanner) Run() Report {
 	// --- sensitive files ---
 	rep.Exposures = s.probeSensitive(soft404)
 
+	// --- passive transport audit (TLS cert, HTTP->HTTPS) ---
+	s.auditTransport()
+
 	rep.Paths = s.findings
+	rep.Weaknesses = s.weaknesses
+	rep.PageFlags = s.pageFlags
 	rep.Requests = s.reqCount
 	rep.DurationMS = time.Since(start).Milliseconds()
 	return rep

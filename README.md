@@ -23,9 +23,10 @@ Dari satu URL, ghostmap mengumpulkan:
 - **Path & endpoint** — diekstrak dari JavaScript, `robots.txt`, `sitemap.xml`, link halaman, lalu rekursif. Tiap temuan ditandai dari mana asalnya: `[js]`, `[robots]`, `[html]`, `[recursive]`.
 - **File sensitif yang terbuka** — `.env`, `.git/config`, backup, `phpinfo.php`, `docker-compose.yml`, dan lainnya. Ditandai cuma kalau isinya benar-benar cocok, dan nilai yang mirip password atau API key **disensor** sebelum ditampilkan.
 - **Teknologi** — ditebak dari header, cookie, dan isi halaman (Laravel, Next.js, WordPress, dsb).
-- **Header keamanan yang hilang** — CSP, HSTS, X-Frame-Options, dan seterusnya.
+- **Kelemahan keamanan** — header yang hilang/lemah (CSP, HSTS, dll), cookie tanpa `Secure`/`HttpOnly`/`SameSite`, versi software yang bocor lewat header, sertifikat TLS yang mau kedaluwarsa, HTTP yang nggak dialihkan ke HTTPS, dan directory listing yang nyala. Tiap temuan diberi tingkat (TINGGI/SEDANG/RENDAH) dan **cara nambalnya**.
+- **Catatan halaman** — dari halaman yang sudah di-crawl: mana yang punya form login, dan mana yang isinya cocok dengan tampilan webshell yang dikenal.
 
-Semua lewat request **GET** biasa. Nggak ada payload serangan, nggak ada yang ditulis atau diubah di server.
+Semua lewat request **GET** biasa. Nggak ada payload serangan, nggak ada brute-force, nggak ada yang ditulis atau diubah di server. Webshell ditandai dari halaman yang memang sudah ketemu saat crawl, bukan dengan menebak-nebak nama file.
 
 ## Instalasi
 
