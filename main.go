@@ -24,7 +24,7 @@ func main() {
 		depth       = flag.Int("depth", 2, "recursion rounds for crawled pages")
 		rate        = flag.Int("rate", 0, "max requests/sec (0 = unlimited)")
 		maxReq      = flag.Int("max", 2000, "hard cap on total requests")
-		ua          = flag.String("ua", "ghostmap/"+version+" (+https://github.com/bramcps/ghostmap)", "User-Agent")
+		ua          = flag.String("ua", "ghostmap/"+version+" (+https://github.com/b3n3d1ck/ghostmap)", "User-Agent")
 		insecure    = flag.Bool("insecure", false, "skip TLS certificate verification")
 		asJSON      = flag.Bool("json", false, "output JSON")
 		outFile     = flag.String("o", "", "write JSON report to file")

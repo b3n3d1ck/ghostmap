@@ -63,18 +63,18 @@ PATH DITEMUKAN (6)
 
 ## Instalasi
 
-**Opsi 1 — unduh binary** (tanpa install apa pun): ambil dari halaman [Releases](https://github.com/bramcps/ghostmap/releases), ekstrak, jalankan.
+**Opsi 1 — unduh binary** (tanpa install apa pun): ambil dari halaman [Releases](https://github.com/b3n3d1ck/ghostmap/releases), ekstrak, jalankan.
 
 **Opsi 2 — pakai Go** (butuh Go 1.24+):
 
 ```bash
-go install github.com/bramcps/ghostmap@latest
+go install github.com/b3n3d1ck/ghostmap@latest
 ```
 
 **Opsi 3 — build dari sumber:**
 
 ```bash
-git clone https://github.com/bramcps/ghostmap.git
+git clone https://github.com/b3n3d1ck/ghostmap.git
 cd ghostmap
 go build -o ghostmap .
 ```
