@@ -1,77 +1,43 @@
+<div align="center">
+
 # ghostmap
 
-Pemetaan attack-surface sebuah situs **tanpa wordlist**. Ketik satu URL, ghostmap menemukan direktori, endpoint, dan file tersembunyi bukan dengan menebak ribuan nama, tapi dengan membaca petunjuk yang situs itu bocorkan sendiri: JavaScript, `robots.txt`, `sitemap.xml`, link halaman, dan `.well-known`, lalu menelusurinya secara rekursif.
+Memetakan halaman, endpoint, dan file tersembunyi sebuah situs **tanpa wordlist** — dengan membaca petunjuk yang situs itu bocorkan sendiri.
 
-Satu binary, tanpa dependency. Jalan di **Linux, WSL, Windows (cmd/PowerShell), dan macOS**.
+<img src="docs/demo.png" alt="contoh ghostmap berjalan" width="760">
 
-![Go](https://img.shields.io/badge/go-1.24-00ADD8?style=flat-square&logo=go&logoColor=white)
-![platform](https://img.shields.io/badge/linux%20·%20wsl%20·%20windows%20·%20macos-222?style=flat-square)
-![recon](https://img.shields.io/badge/mode-non--destruktif%20(GET)-4d7c0f?style=flat-square)
-![license](https://img.shields.io/badge/license-MIT-333?style=flat-square)
+</div>
 
-> **Hanya untuk sistem yang kamu miliki atau yang kamu diberi izin tertulis untuk menguji.** Memindai sistem orang lain tanpa izin bisa melanggar hukum (di Indonesia: UU ITE). ghostmap hanya mengirim request GET biasa dan memperkenalkan dirinya lewat User-Agent, tapi tanggung jawab penggunaan ada di tangan kamu.
+## Latar belakang
 
-## Kenapa "tanpa wordlist"
+Waktu mulai belajar recon web, hal pertama yang semua orang suruh pakai adalah dir scanner seperti gobuster atau dirb. Cara kerjanya: kamu kasih wordlist berisi puluhan ribu nama (`admin`, `backup`, `old`, `test`, ...), lalu tool-nya menembak satu-satu ke server. Berisik, lama, dan hasilnya cuma sebagus wordlist-nya. Kalau endpoint aslinya namanya `/api/v1/invoices`, dan kata itu nggak ada di wordlist, ya nggak akan ketemu.
 
-Dir scanner biasa (gobuster, dirb) menembak ribuan tebakan: `/admin`, `/backup`, `/old`, dan seterusnya. Berisik, lambat, dan cuma menemukan nama yang ada di wordlist.
+Padahal aplikasi web itu sering **menyebutkan rutenya sendiri** di tempat yang bisa dibaca siapa pun. File JavaScript di frontend isinya penuh `fetch("/api/v1/users")`. File `robots.txt` justru sering mencantumkan `/admin/` yang mau disembunyikan. Ada `sitemap.xml`, ada link di HTML. Daripada menebak, kenapa nggak dibaca aja?
 
-ghostmap ambil jalan lain. Aplikasi web **membocorkan rutenya sendiri** di tempat-tempat ini:
+ghostmap bekerja dari situ. Dia nggak punya wordlist sama sekali. Dia mengumpulkan path nyata dari sumber-sumber di atas, memeriksanya, lalu menelusuri halaman yang ketemu untuk menemukan lebih banyak. Hasilnya lebih relevan, lebih cepat, dan jauh lebih sedikit request dibanding brute force.
 
-- **JavaScript** — bundel frontend penuh dengan `fetch("/api/v1/users")`, path admin, dan endpoint internal. ghostmap mengekstraknya.
-- **robots.txt** — justru sering memuat `/admin/`, `/backup/` yang ingin disembunyikan.
-- **sitemap.xml** dan **link di halaman** — rute nyata yang dipakai aplikasi.
+## Yang dilakukan
 
-Dari situ ghostmap menyusun daftar path nyata, memeriksanya, lalu menelusuri halaman yang ketemu untuk menemukan lebih banyak. Hasilnya jauh lebih relevan daripada brute force, dan jauh lebih sunyi.
+Dari satu URL, ghostmap mengumpulkan:
 
-## Yang ditemukan
+- **Path & endpoint** — diekstrak dari JavaScript, `robots.txt`, `sitemap.xml`, link halaman, lalu rekursif. Tiap temuan ditandai dari mana asalnya: `[js]`, `[robots]`, `[html]`, `[recursive]`.
+- **File sensitif yang terbuka** — `.env`, `.git/config`, backup, `phpinfo.php`, `docker-compose.yml`, dan lainnya. Ditandai cuma kalau isinya benar-benar cocok, dan nilai yang mirip password atau API key **disensor** sebelum ditampilkan.
+- **Teknologi** — ditebak dari header, cookie, dan isi halaman (Laravel, Next.js, WordPress, dsb).
+- **Header keamanan yang hilang** — CSP, HSTS, X-Frame-Options, dan seterusnya.
 
-- **Path & endpoint** hasil ekstraksi (dengan status, ukuran, judul, dan dari mana ditemukan)
-- **File sensitif terekspos**: `.env`, `.git/config`, backup, `phpinfo.php`, `docker-compose.yml`, dan lainnya — dengan bukti, dan nilai yang terlihat seperti password/kunci otomatis **disensor**
-- **Fingerprint teknologi**: dari header, cookie, dan body (Laravel, Next.js, WordPress, dll)
-- **Header keamanan yang hilang**: CSP, HSTS, X-Frame-Options, dan lainnya
-
-## Contoh
-
-```console
-$ ghostmap https://target-punyamu.com
-
-RINGKASAN  42 request · 2449ms
-
-TEKNOLOGI
-  › Laravel
-  › Server: nginx/1.18.0
-  › X-Powered-By: PHP/8.1.2
-
-HEADER KEAMANAN HILANG
-  Content-Security-Policy, Strict-Transport-Security, X-Frame-Options, ...
-
-⚠ FILE TEREKSPOS
-  ✱ /.env                  File .env berisi kredensial
-      APP_KEY=*** DB_PASSWORD=*** MAIL_PASSWORD=***
-  ✱ /.git/config           Folder .git terekspos, kode sumber bisa diunduh
-
-PATH DITEMUKAN (6)
-  200  /admin/                   [robots]  57B · Admin
-  200  /api/v1/admin/config      [js]      14B
-  200  /api/v1/users             [js]      10B
-  200  /dashboard                [html]    57B · Dashboard
-  200  /login                    [html]    56B · Login
-  200  /static/app.js            [html]    114B
-```
-
-`[js]` artinya endpoint itu ditemukan di dalam file JavaScript, bukan ditebak.
+Semua lewat request **GET** biasa. Nggak ada payload serangan, nggak ada yang ditulis atau diubah di server.
 
 ## Instalasi
 
-**Opsi 1 — unduh binary** (tanpa install apa pun): ambil dari halaman [Releases](https://github.com/b3n3d1ck/ghostmap/releases), ekstrak, jalankan.
+**Unduh binary jadi** — paling gampang, nggak perlu install apa-apa. Ambil dari halaman [Releases](https://github.com/b3n3d1ck/ghostmap/releases), ekstrak, jalankan. Tersedia untuk Linux, Windows, dan macOS.
 
-**Opsi 2 — pakai Go** (butuh Go 1.24+):
+**Lewat Go** (butuh Go 1.21+):
 
 ```bash
 go install github.com/b3n3d1ck/ghostmap@latest
 ```
 
-**Opsi 3 — build dari sumber:**
+**Build dari sumber:**
 
 ```bash
 git clone https://github.com/b3n3d1ck/ghostmap.git
@@ -79,48 +45,59 @@ cd ghostmap
 go build -o ghostmap .
 ```
 
-Di Windows tinggal jalankan `ghostmap.exe` dari cmd atau PowerShell. Di WSL/Ubuntu, `./ghostmap`.
+Di WSL atau Ubuntu, kalau `go` belum ada: `sudo apt install -y golang-go`. Di Windows, hasilnya `ghostmap.exe`, jalankan dari cmd atau PowerShell.
 
 ## Pemakaian
 
 ```bash
-ghostmap https://target-punyamu.com
-ghostmap -c 40 -depth 3 https://target-punyamu.com      # lebih cepat, lebih dalam
-ghostmap -rate 10 https://target-punyamu.com            # batasi 10 req/detik (sopan)
-ghostmap -json -o hasil.json https://target-punyamu.com # simpan laporan JSON
+ghostmap https://situs-punyamu.com                       # pemindaian standar
+ghostmap -c 40 -depth 3 https://situs-punyamu.com         # lebih paralel, lebih dalam
+ghostmap -rate 10 https://situs-punyamu.com               # batasi 10 request/detik
+ghostmap -json -o hasil.json https://situs-punyamu.com    # simpan laporan JSON
 ```
 
-| Opsi | Arti |
-|---|---|
-| `-c` | jumlah request paralel (default 20) |
-| `-depth` | berapa putaran rekursi untuk halaman yang di-crawl (default 2) |
-| `-rate` | batas request/detik, 0 = tanpa batas |
-| `-max` | batas keras total request (default 2000) |
-| `-timeout` | timeout per request |
-| `-json` / `-o` | keluaran JSON ke layar / ke file |
-| `-insecure` | lewati verifikasi sertifikat TLS |
-| `-ua` | ganti User-Agent |
+| Opsi | Arti | Default |
+|---|---|---|
+| `-c` | request paralel | 20 |
+| `-depth` | putaran rekursi untuk halaman yang di-crawl | 2 |
+| `-rate` | batas request/detik (0 = tanpa batas) | 0 |
+| `-max` | batas keras total request | 2000 |
+| `-timeout` | timeout per request | 10s |
+| `-json` / `-o` | keluaran JSON ke layar / ke file | — |
+| `-insecure` | lewati verifikasi sertifikat TLS | off |
+| `-ua` | ganti User-Agent | ghostmap/versi |
+
+Keluaran JSON berguna kalau mau dilanjut ke tool lain, misalnya daftar endpoint-nya dilempar ke scanner kerentanan.
 
 ## Cara kerja
 
-1. Ambil halaman utama, baca `robots.txt`, `sitemap.xml`.
-2. Unduh file JavaScript yang dimuat halaman, ekstrak path/endpoint dengan regex (gaya LinkFinder).
-3. Susun kandidat path + prefix direktorinya, lalu periksa semuanya secara paralel.
-4. Dari halaman HTML yang ketemu, ekstrak link baru dan ulangi sampai kedalaman tertentu.
-5. Periksa daftar file sensitif dengan baseline anti soft-404 (hanya ditandai kalau isinya cocok tanda tangan).
-6. Susun laporan: path, file terekspos, teknologi, header.
+Urutannya kira-kira begini:
 
-Semua request adalah **GET** biasa. Tidak ada payload serangan, tidak ada eksploitasi, tidak ada yang ditulis ke target.
+1. Ambil halaman utama, `robots.txt`, dan `sitemap.xml`.
+2. Unduh file JavaScript yang dimuat halaman, lalu ekstrak path dan endpoint dengan regex (idenya mirip LinkFinder).
+3. Susun semua kandidat path beserta prefix direktorinya, lalu periksa semuanya paralel.
+4. Dari halaman HTML yang membalas 200, ambil link baru, ulangi sampai batas `-depth`.
+5. Periksa daftar file sensitif. Sebelum itu, ghostmap meminta satu path acak dulu untuk tahu apakah server membalas 200 ke apa pun (soft-404), supaya nggak asal menandai.
+6. Rangkum jadi laporan.
+
+Request dibatasi oleh `-c` (paralelisme), `-rate` (kecepatan), dan `-max` (total), biar nggak membebani target.
 
 ## Batasan
 
-- Menemukan yang **direferensikan**. Endpoint yang tidak disebut di mana pun (benar-benar tersembunyi) tidak akan muncul — itu memang disengaja, karena menemukannya butuh brute force yang berisik.
-- Fingerprint berbasis pola, bisa meleset pada setup yang tidak biasa.
+Aku lebih suka jujur soal ini daripada melebih-lebihkan:
+
+- ghostmap menemukan yang **direferensikan**. Endpoint yang benar-benar nggak disebut di mana pun nggak akan muncul. Itu memang trade-off-nya: menemukan yang begitu butuh brute force, dan brute force itu yang sengaja aku hindari.
+- Fingerprint teknologinya berbasis pola sederhana, bisa meleset pada konfigurasi yang nggak biasa.
+- Ini alat recon, bukan pemindai kerentanan. Dia menunjukkan permukaan serangan, bukan membuktikan ada celah yang bisa dieksploitasi.
+
+## Izin & hukum
+
+Pakai ghostmap **hanya pada sistem milikmu sendiri atau yang kamu punya izin tertulis** untuk menguji. Walaupun cuma mengirim GET dan memperkenalkan diri lewat User-Agent, memindai sistem orang lain tanpa izin tetap bisa melanggar hukum. Di Indonesia itu masuk UU ITE Pasal 30. Untuk latihan, pakai target yang memang disediakan: DVWA, OWASP Juice Shop, atau lab di HackTheBox / PortSwigger Academy.
 
 ## Kontribusi
 
-Tambahan pola ekstraksi, tanda tangan file sensitif, atau fingerprint teknologi sangat diterima. Tambahkan + tesnya (`go test ./...`), lalu kirim pull request. Jangan menambah apa pun yang menyerang atau mengeksploitasi target — ghostmap sengaja dijaga sebagai alat recon non-destruktif.
+Yang paling berguna: pola ekstraksi baru, tanda tangan file sensitif, atau deteksi teknologi. Tambahkan di kodenya, tambahkan tesnya (`go test ./...` harus lolos), lalu kirim pull request. Satu aturan: jangan menambahkan apa pun yang menyerang atau mengeksploitasi target. ghostmap sengaja dijaga tetap sebagai alat recon yang non-destruktif.
 
 ## Lisensi
 
-[MIT](LICENSE) © 2025 Mas Bram. Untuk riset keamanan yang sah dan pengujian yang diizinkan. Kalau berguna, kasih ⭐.
+[MIT](LICENSE) © 2025 Mas Bram
